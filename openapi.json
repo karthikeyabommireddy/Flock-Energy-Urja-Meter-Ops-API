@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Flock Energy \u2014 Urja Meter Ops API",
-    "description": "Clean REST API proxy layer over the legacy Urja Meter Ops portal. Handles authentication, session management, and HTML/JSON normalisation so downstream clients never talk to the legacy portal directly.",
-    "version": "1.0.0"
+    "title": "Flock Energy — Urja Meter Ops API",
+    "description": "Clean REST API proxy layer over the legacy Urja Meter Ops portal. Handles authentication, session management and response normalisation so downstream clients never talk to the legacy portal directly.",
+    "version": "1.1.0"
   },
   "paths": {
     "/health": {
@@ -31,6 +31,82 @@
         }
       }
     },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Ready",
+        "description": "Readiness: can we hold a session with the portal?\n\nUnlike /health this talks to the portal, though at most once every few seconds\nhowever often it is probed.",
+        "operationId": "ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Ready Health Ready Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -49,6 +125,56 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
           }
         }
       }
@@ -58,19 +184,428 @@
         "tags": [
           "meters"
         ],
-        "summary": "List Meters",
+        "summary": "List, filter and search meters",
         "operationId": "list_meters_api_v1_meters_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only meters in this status (case-insensitive), e.g. FAULTY",
+              "title": "Status"
+            },
+            "description": "Only meters in this status (case-insensitive), e.g. FAULTY"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Substring of the meter id or serial number",
+              "title": "Q"
+            },
+            "description": "Substring of the meter id or serial number"
+          },
+          {
+            "name": "make",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Manufacturer, case-insensitive, e.g. HPL or L&T",
+              "title": "Make"
+            },
+            "description": "Manufacturer, case-insensitive, e.g. HPL or L&T"
+          },
+          {
+            "name": "phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "single or three",
+              "title": "Phase"
+            },
+            "description": "single or three"
+          },
+          {
+            "name": "dt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Transformer code, e.g. DT-007",
+              "title": "Dt"
+            },
+            "description": "Transformer code, e.g. DT-007"
+          },
+          {
+            "name": "zone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: zone code, e.g. Z-01",
+              "title": "Zone"
+            },
+            "description": "Network branch: zone code, e.g. Z-01"
+          },
+          {
+            "name": "circle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: circle code, e.g. C-01",
+              "title": "Circle"
+            },
+            "description": "Network branch: circle code, e.g. C-01"
+          },
+          {
+            "name": "division",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: division code",
+              "title": "Division"
+            },
+            "description": "Network branch: division code"
+          },
+          {
+            "name": "subdivision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: subdivision code",
+              "title": "Subdivision"
+            },
+            "description": "Network branch: subdivision code"
+          },
+          {
+            "name": "substation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: substation code",
+              "title": "Substation"
+            },
+            "description": "Network branch: substation code"
+          },
+          {
+            "name": "feeder",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Network branch: feeder code, e.g. F-001",
+              "title": "Feeder"
+            },
+            "description": "Network branch: feeder code, e.g. F-001"
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Latitude of the search point",
+              "title": "Lat"
+            },
+            "description": "Latitude of the search point"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180.0,
+                  "minimum": -180.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Longitude of the search point",
+              "title": "Lon"
+            },
+            "description": "Longitude of the search point"
+          },
+          {
+            "name": "radius_m",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 100000.0,
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only meters within this many metres of lat/lon, nearest first",
+              "title": "Radius M"
+            },
+            "description": "Only meters within this many metres of lat/lon, nearest first"
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "coordinates",
+                      "hierarchy"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Extra fields, comma separated or repeated. coordinates: latitude/longitude (one portal request per meter, fetched once). hierarchy: the codes from zone down to the transformer.",
+              "title": "Include"
+            },
+            "description": "Extra fields, comma separated or repeated. coordinates: latitude/longitude (one portal request per meter, fetched once). hierarchy: the codes from zone down to the transformer."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 500,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page size; omit to get every meter",
+              "title": "Limit"
+            },
+            "description": "Page size; omit to get every meter"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Meters to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Meters to skip"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/MeterSummary"
                   },
-                  "type": "array",
                   "title": "Response List Meters Api V1 Meters Get"
+                }
+              }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              },
+              "X-Total-Count": {
+                "description": "Meters matching the filters, before limit and offset are applied",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
                 }
               }
             }
@@ -92,8 +627,14 @@
             "required": true,
             "schema": {
               "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,32}$",
+              "description": "Meter id, as the portal prints it.",
+              "examples": [
+                "J100000"
+              ],
               "title": "Meter Id"
-            }
+            },
+            "description": "Meter id, as the portal prints it."
           }
         ],
         "responses": {
@@ -105,14 +646,87 @@
                   "$ref": "#/components/schemas/MeterDetail"
                 }
               }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter or node",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid query or path parameter",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
                 }
               }
             }
@@ -125,7 +739,8 @@
         "tags": [
           "meters"
         ],
-        "summary": "Get Meter Consumption",
+        "summary": "Consumption history",
+        "description": "The meter's half-hourly readings.\n\nThe portal serves one fixed window and takes no date range, so `from` / `to` cut that window here.\n`value` is the cumulative kWh register; `interval_kwh` is the consumption in each interval.",
         "operationId": "get_meter_consumption_api_v1_meters__meter_id__consumption_get",
         "parameters": [
           {
@@ -134,8 +749,52 @@
             "required": true,
             "schema": {
               "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,32}$",
+              "description": "Meter id, as the portal prints it.",
+              "examples": [
+                "J100000"
+              ],
               "title": "Meter Id"
-            }
+            },
+            "description": "Meter id, as the portal prints it."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only readings at or after this time (RFC 3339 or a date; no zone means UTC)",
+              "title": "From"
+            },
+            "description": "Only readings at or after this time (RFC 3339 or a date; no zone means UTC)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only readings at or before this time (RFC 3339 or a date; no zone means UTC)",
+              "title": "To"
+            },
+            "description": "Only readings at or before this time (RFC 3339 or a date; no zone means UTC)"
           }
         ],
         "responses": {
@@ -147,14 +806,87 @@
                   "$ref": "#/components/schemas/ConsumptionHistory"
                 }
               }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter or node",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid query or path parameter",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
                 }
               }
             }
@@ -168,19 +900,402 @@
           "hierarchy"
         ],
         "summary": "Get Hierarchy",
-        "description": "Optional extension \u2014 the organised network tree.",
+        "description": "Optional extension — the organised network tree, Zone down to transformer.",
         "operationId": "get_hierarchy_api_v1_hierarchy_get",
+        "parameters": [
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the subtree under this node code",
+              "title": "Root"
+            },
+            "description": "Only the subtree under this node code"
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Levels below the root to include (0 = the node alone)",
+              "title": "Depth"
+            },
+            "description": "Levels below the root to include (0 = the node alone)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/HierarchyNode"
                   },
-                  "type": "array",
                   "title": "Response Get Hierarchy Api V1 Hierarchy Get"
+                }
+              }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown meter or node",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hierarchy/issues": {
+      "get": {
+        "tags": [
+          "hierarchy"
+        ],
+        "summary": "Hierarchy data-quality report",
+        "description": "What does not add up in the network data: nodes under two parents, mismatched names or feeders,\ntransformers without meters, meters pointing at unknown transformers.",
+        "operationId": "get_hierarchy_issues_api_v1_hierarchy_issues_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HierarchyReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transformers": {
+      "get": {
+        "tags": [
+          "fleet"
+        ],
+        "summary": "List Transformers",
+        "description": "Distribution transformers with their feeder, capacity and how many meters hang off them.",
+        "operationId": "list_transformers_api_v1_transformers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Transformer"
+                  },
+                  "type": "array",
+                  "title": "Response List Transformers Api V1 Transformers Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fleet/summary": {
+      "get": {
+        "tags": [
+          "fleet"
+        ],
+        "summary": "Get Fleet Summary",
+        "description": "Counts by status, make, phase and transformer, for a dashboard.",
+        "operationId": "get_fleet_summary_api_v1_fleet_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Cache": {
+                "description": "HIT: fresh cache. MISS: loaded from the portal. STALE: the portal failed, last good data was served.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS",
+                    "STALE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The portal rejected the service account's credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The portal answered with something we could not use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Portal unreachable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The portal timed out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error in this API (details are in its log, not here)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
                 }
               }
             }
@@ -203,6 +1318,30 @@
             },
             "type": "array",
             "title": "Records"
+          },
+          "interval_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Minutes",
+            "description": "Spacing of the readings (30 for this portal), when they are evenly spaced"
+          },
+          "portal_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portal Timezone",
+            "description": "The zone the portal's local timestamps were read in before being converted to UTC. The portal states none, so this is an assumption."
           }
         },
         "type": "object",
@@ -218,7 +1357,7 @@
           "period": {
             "type": "string",
             "title": "Period",
-            "description": "ISO 8601 date/timestamp, or the raw label if unparseable"
+            "description": "Reading time, RFC 3339 UTC (2026-06-23T18:00:00Z). Readings whose time cannot be read are left out"
           },
           "value": {
             "anyOf": [
@@ -230,7 +1369,7 @@
               }
             ],
             "title": "Value",
-            "description": "Consumption value, normalised to float. null if unparseable"
+            "description": "The meter's cumulative kWh register at that time, not the consumption in the interval (see interval_kwh). null if unparseable"
           },
           "unit": {
             "anyOf": [
@@ -242,6 +1381,42 @@
               }
             ],
             "title": "Unit"
+          },
+          "kvah": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kvah",
+            "description": "Cumulative kVAh register"
+          },
+          "voltage_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voltage R",
+            "description": "R-phase voltage in volts"
+          },
+          "interval_kwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Kwh",
+            "description": "kWh consumed since the reading one step earlier. Null for the first reading, after a missing or unreadable reading (the difference would span several intervals) and where the register fell"
           }
         },
         "type": "object",
@@ -252,27 +1427,186 @@
         "title": "ConsumptionRecord",
         "description": "One data point in a consumption history."
       },
-      "HTTPValidationError": {
+      "ErrorDetail": {
         "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Stable machine-readable error code, e.g. upstream_unavailable"
+          },
           "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
+            "type": "string",
+            "title": "Detail"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id",
+            "description": "Also sent as the X-Request-ID response header"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "status",
+          "code",
+          "detail"
+        ],
+        "title": "ErrorDetail",
+        "description": "Consistent error body shape for every non-2xx response this API returns.\n\nRFC 9457 problem details (`application/problem+json`) that keep the `detail` message\nv1 clients already read. `code` is stable: branch on it, not on `detail`."
+      },
+      "FleetSummary": {
+        "properties": {
+          "total_meters": {
+            "type": "integer",
+            "title": "Total Meters"
+          },
+          "by_status": {
+            "additionalProperties": {
+              "type": "integer"
             },
-            "type": "array",
+            "type": "object",
+            "title": "By Status"
+          },
+          "by_make": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Make"
+          },
+          "by_phase": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Phase"
+          },
+          "by_dt": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Dt",
+            "description": "Meters per transformer code"
+          },
+          "transformers": {
+            "type": "integer",
+            "title": "Transformers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_meters",
+          "by_status",
+          "by_make",
+          "by_phase",
+          "by_dt",
+          "transformers"
+        ],
+        "title": "FleetSummary",
+        "description": "GET /api/v1/fleet/summary: counts for a dashboard, from the meter and transformer lists."
+      },
+      "HierarchyIssue": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "multiple_parents, name_mismatch, incomplete_path, dt_mismatch, feeder_mismatch, dt_without_meters, meter_unknown_dt, meter_without_dt, unreadable_breadcrumb, missing_code or unknown_level"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The node or transformer the issue is about"
+          },
+          "detail": {
+            "type": "string",
             "title": "Detail"
           }
         },
         "type": "object",
-        "title": "HTTPValidationError"
+        "required": [
+          "type",
+          "id",
+          "detail"
+        ],
+        "title": "HierarchyIssue",
+        "description": "One thing in the hierarchy data that does not add up."
+      },
+      "HierarchyLevel": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level",
+            "description": "zone, circle, division, subdivision, substation, feeder or dt"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "e.g. 'Jaipur Zone 2'"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "e.g. 'Z-02'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "HierarchyLevel",
+        "description": "One step of a meter's breadcrumb through the network."
       },
       "HierarchyNode": {
         "properties": {
           "node_id": {
             "type": "string",
-            "title": "Node Id"
+            "title": "Node Id",
+            "description": "The node's code, e.g. Z-01 or DT-007"
           },
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "node_type": {
@@ -284,7 +1618,8 @@
                 "type": "null"
               }
             ],
-            "title": "Node Type"
+            "title": "Node Type",
+            "description": "zone, circle, division, subdivision, substation, feeder or dt"
           },
           "children": {
             "items": {
@@ -292,15 +1627,64 @@
             },
             "type": "array",
             "title": "Children"
+          },
+          "meter_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meter Count",
+            "description": "Meters at or below this node"
+          },
+          "capacity_kva": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Kva",
+            "description": "Transformer capacity (dt nodes only)"
           }
         },
         "type": "object",
         "required": [
-          "node_id",
-          "name"
+          "node_id"
         ],
         "title": "HierarchyNode",
-        "description": "A node in the network hierarchy tree \u2014 GET /api/v1/hierarchy (optional extension)."
+        "description": "A node in the network hierarchy tree — GET /api/v1/hierarchy (optional extension)."
+      },
+      "HierarchyReport": {
+        "properties": {
+          "checked": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Checked",
+            "description": "What was examined: meters, transformers and breadcrumbs read"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/HierarchyIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checked",
+          "issues"
+        ],
+        "title": "HierarchyReport",
+        "description": "GET /api/v1/hierarchy/issues: the hierarchy's data-quality report."
       },
       "LoginResult": {
         "properties": {
@@ -328,11 +1712,25 @@
             "title": "Meter Id"
           },
           "serial_number": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Serial Number"
           },
           "status": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Status"
           },
           "location": {
@@ -344,7 +1742,8 @@
                 "type": "null"
               }
             ],
-            "title": "Location"
+            "title": "Location",
+            "description": "The transformer the meter hangs off, which is the portal's closest thing to a place name. Coordinates are in latitude / longitude."
           },
           "installed_date": {
             "anyOf": [
@@ -356,7 +1755,83 @@
               }
             ],
             "title": "Installed Date",
-            "description": "ISO 8601 date if the portal provided a parseable one"
+            "description": "The portal shows no installation date, so this is always null"
+          },
+          "make": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Make"
+          },
+          "phase_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Type"
+          },
+          "installation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installation Type",
+            "description": "e.g. 'Whole Current' or 'CT Operated'"
+          },
+          "dt_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dt Code"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Null when the portal has no usable coordinates"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "hierarchy": {
+            "items": {
+              "$ref": "#/components/schemas/HierarchyLevel"
+            },
+            "type": "array",
+            "title": "Hierarchy",
+            "description": "Breadcrumb from zone down to the transformer, as the portal shows it"
           },
           "raw_fields": {
             "additionalProperties": {
@@ -364,17 +1839,15 @@
             },
             "type": "object",
             "title": "Raw Fields",
-            "description": "Any additional fields the portal exposed that don't map to a named field above. Kept rather than discarded, since the portal's exact field set was not confirmed against a live session \u2014 see PROTOCOL.md."
+            "description": "Any other parameter the portal lists for the meter that does not map to a named field above, kept rather than dropped. Only five meters' details were captured (see PROTOCOL.md), so other meters may carry more."
           }
         },
         "type": "object",
         "required": [
-          "meter_id",
-          "serial_number",
-          "status"
+          "meter_id"
         ],
         "title": "MeterDetail",
-        "description": "A single meter's full detail \u2014 GET /api/v1/meters/{id}."
+        "description": "A single meter's full detail — GET /api/v1/meters/{id}."
       },
       "MeterSummary": {
         "properties": {
@@ -383,13 +1856,27 @@
             "title": "Meter Id"
           },
           "serial_number": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Serial Number"
           },
           "status": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Status",
-            "description": "e.g. ACTIVE, INACTIVE, FAULT, UNKNOWN"
+            "description": "Installation status as the portal reports it, upper-cased: INSTALLED, FAULTY or DECOMMISSIONED"
           },
           "location": {
             "anyOf": [
@@ -400,51 +1887,184 @@
                 "type": "null"
               }
             ],
-            "title": "Location"
-          }
-        },
-        "type": "object",
-        "required": [
-          "meter_id",
-          "serial_number",
-          "status"
-        ],
-        "title": "MeterSummary",
-        "description": "One row of the meter listing \u2014 GET /api/v1/meters."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
+            "title": "Location",
+            "description": "Null in the list; the meter's detail carries the transformer it hangs off"
+          },
+          "make": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Make",
+            "description": "Manufacturer, e.g. HPL, L&T, Genus, Allied, Secure"
+          },
+          "phase_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Type",
+            "description": "single or three"
+          },
+          "dt_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dt Code",
+            "description": "Distribution transformer the meter hangs off, e.g. DT-007"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Only filled when asked for (include=coordinates) or when a geo filter is used"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M",
+            "description": "Metres from lat/lon; only with the geo filter"
+          },
+          "hierarchy_path": {
+            "anyOf": [
+              {
+                "items": {
                   "type": "string"
                 },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hierarchy Path",
+            "description": "Codes from zone down to DT, e.g. ['Z-01', 'C-01', ...]; only with include=hierarchy"
           }
         },
         "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
+          "meter_id"
         ],
-        "title": "ValidationError"
+        "title": "MeterSummary",
+        "description": "One row of the meter listing — GET /api/v1/meters."
+      },
+      "Transformer": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "feeder_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeder Code"
+          },
+          "capacity_kva": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Kva"
+          },
+          "meter_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meter Count",
+            "description": "Meters that point at this transformer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "Transformer",
+        "description": "A distribution transformer — GET /api/v1/transformers."
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "meters",
+      "description": "Smart meters: list and filter, detail, consumption history."
+    },
+    {
+      "name": "hierarchy",
+      "description": "The organised network tree and its data-quality report."
+    },
+    {
+      "name": "fleet",
+      "description": "Transformers and fleet-level counts."
+    },
+    {
+      "name": "auth",
+      "description": "Sessions are automatic; this only forces a fresh login."
+    },
+    {
+      "name": "meta",
+      "description": "Liveness and readiness probes."
+    }
+  ]
 }

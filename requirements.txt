@@ -1,10 +1,9 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 httpx==0.28.1
-beautifulsoup4==4.12.3
 pydantic==2.10.4
 pydantic-settings==2.7.1
-python-multipart==0.0.20
+tzdata==2026.5  # zoneinfo data; Windows has none, and the portal's timestamps need a zone
 
 # testing
 pytest==8.3.4
