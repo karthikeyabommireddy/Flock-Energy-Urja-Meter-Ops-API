@@ -94,3 +94,108 @@ actually known, rather than a decision made by feel. A legacy-integration projec
 risk isn't the code being hard to write — it's the code being confidently wrong about
 something nobody checked, and the checking discipline is the actual deliverable here,
 even more than the working server is.
+
+---
+
+## Addendum: the v1.1 extension
+
+> Written by Claude Code, the coding agent that built v1.1, from what actually happened while
+> it was built (see "Use of AI" in the README). The five answers above are the author's own,
+> from v1, and are unchanged; they still describe v1. This section is limited to the extension.
+
+### What was assumed
+
+- **That the readings are in `Asia/Kolkata`.** The portal prints `23/06/2026 23:30` with no
+  zone. The zone of the network (Jaipur) was chosen, made a setting, and put in every
+  consumption response (`portal_timezone`), so a wrong guess is visible rather than silent.
+- **That every meter under a transformer shares that transformer's path through the
+  network.** It is what lets the tree be rebuilt from 40 breadcrumbs instead of 403. The
+  audit (`/hierarchy/issues`) catches a transformer whose sample disagrees with the
+  Transformers screen; it cannot catch a single meter whose own breadcrumb differs from its
+  transformer's sample. That is a limit of the method, stated in `PROTOCOL.md` §8.
+- **That five captured meters are representative.** They showed two different shapes for a
+  meter's detail. A third shape raises a `502` rather than a half-empty meter, so the
+  assumption fails loudly if it is wrong.
+- **That an expired session looks like a redirect to `/login`.** The author saw that in the
+  browser, but the capture does not show how it looks on the JSON endpoints, so the adapter
+  treats a 401, a redirect and a JSON redirect body alike.
+
+### What was difficult
+
+Reading the data correctly, once it could be seen. The numbers are strings, the consumption
+is a cumulative register rather than consumption, one meter detail comes in two shapes (one
+of them a JSON document inside a string, inside SvelteKit's `devalue` encoding), and the
+network exists only as breadcrumbs. None of that was visible from outside the login, and
+each was found by comparing meters side by side rather than reading one. The other
+difficulty was not over-claiming: the adapter has still not touched the live portal, so
+"replayed against the capture" is the strongest thing that can honestly be said.
+
+### Mistakes, and how they were caught
+
+The repo's own test suite was not run for this change, so these were caught by replaying the
+captured responses through the adapter and the routes, by looking at the web client against
+them, and by separate Claude Code review agents (security, backend, web) that read the whole
+change before it was committed. The first group, caught by replay and by eye:
+
+- **New optional fields would have changed v1's response bodies.** Adding `latitude`,
+  `longitude`, `distance_m` and `hierarchy_path` as `null` to every list row breaks a client
+  that compares bodies exactly. Caught by re-creating v1's scenarios in the replay; fixed by
+  leaving unset fields out of the list response.
+- **A radius search hid the coordinates it had just fetched.** It filtered by them and then
+  returned rows without them. Caught in the replay; fixed.
+- **One log line per unreadable coordinate** would have flooded the log on a bad day. Caught
+  in the replay; now one aggregated line per kind of problem.
+- **The same fact reported as two kinds of issue** (an unreadable breadcrumb was also
+  reported as an unresolved transformer). Caught reading the report; one kind removed.
+- **The KPI cards on the fleet page listed their parts in reverse order** (a stray
+  `flex-direction: column-reverse`). Caught by looking at the page, not by any check.
+
+The second group, found by the review agents and reproduced before it was fixed, is the more
+uncomfortable one, because none of it showed up in any run the agent itself did:
+
+- **A redirect on the login request would have re-sent the password to another host.** The
+  check for "left the portal's host" ran on the response, after the second request had gone out.
+  It now runs before every request, redirects included.
+- **`interval_kwh` could span a gap.** After one missing half hour the next interval held two
+  half hours of consumption and was reported as one, which the web client then flagged as a
+  "spike". The interval is now left empty after a missing or unreadable reading.
+- **The client was built more than once on a cold start** (eight threads, eight clients, eight
+  logins), which quietly defeated the single-flight login and the concurrency cap.
+- **A bad answer for one meter's coordinates was remembered for an hour** as "this meter has
+  none", so a radius search silently left it out.
+- **The documented `include=coordinates,hierarchy` returned a 422**; only the repeated form
+  worked. The first fix for that broke the repeated form too (the validator hid that the
+  parameter was a list), which a re-run of the same probes caught.
+- **A payload that had the wrong shape could be cached as an empty answer** (rows with no ids, a
+  list that said it had 403 meters and yielded none) instead of failing and serving stale data.
+- **README claims that were stronger than the code**: "a typo cannot lock the account", "a single
+  aggregated warning", "status codes unchanged". Each was corrected rather than defended.
+
+### What should be done differently
+
+- **Run it once against the live portal** with real credentials and compare it with the
+  capture: the cookie's name and lifetime, what an unknown id and a wrong password return,
+  page 2 of the Transformers screen, and the breadcrumbs and coordinates of all 403 meters.
+- **Turn the throwaway replay into a test tier**: a trimmed, sanitised fixture set (the raw
+  capture holds a live session and stays out of the repository), and the six stale v1 tests
+  rewritten against the real shapes. The v1 list item "add an integration tier against a
+  mock of the confirmed portal" is exactly this, now that the portal is confirmed.
+- **Move the index out of process memory** (a store with a spatial index, refreshed
+  incrementally) before the fleet is much larger than 403 meters: ingestion, not querying,
+  is the cost.
+- **Two of the v1 items above were done in v1.1**: re-login is single-flight (the lock),
+  and outbound requests are capped, identified and backed off (the rate limiting).
+
+### Anything else
+
+The capture contained the live password and a session. It was never put in the repository
+(`*.har` is git-ignored) and was analysed with scripts that print neither.
+
+A security review of v1.1 found that the v1 commit itself had published the portal login, in
+`PROJECT-TASK.md` and in a test fixture. v1.1 removes it from the files (the history keeps it),
+so the password should be treated as exposed and rotated, and the repository now ignores
+`.env.*`, captures, cookies and keys so that the same mistake is harder to repeat.
+
+The most interesting thing in the data is not a bug in the code: two of the five meters are
+`Decommissioned` yet report a steady 0.4 to 0.5 kWh every half hour, which the web client
+now points out on the meter page.
