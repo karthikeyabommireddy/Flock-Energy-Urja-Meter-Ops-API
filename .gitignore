@@ -3,8 +3,23 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .env
+# Any other env file (web/.env.local, .env.production, ...) can hold credentials too; only the templates are tracked
+.env.*
+!.env.example
 *.egg-info/
 .coverage
 htmlcov/
 graphify-out/
 .onestop/
+
+# Recon captures can hold session cookies and the portal password: never commit them
+fixtures/raw/
+*.har
+cookies.txt
+*.pem
+*.key
+
+# Web client
+node_modules/
+web/dist/
+*.tsbuildinfo

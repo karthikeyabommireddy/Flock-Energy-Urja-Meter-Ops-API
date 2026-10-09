@@ -35,7 +35,7 @@ Before writing code, inspect how the legacy portal behaves under the hood.
 
 1. Open Chrome/Firefox DevTools (`F12` or `Ctrl+Shift+I` / `Cmd+Option+I`) and switch to the **Network** tab.
 2. Check **Preserve log** to keep HTTP requests across redirects.
-3. Log in to `https://urja-ops.flockenergy.tech` using the credentials provided (`operator@urja.local` / `urja-ops-2026`).
+3. Log in to `https://urja-ops.flockenergy.tech` using the credentials provided in your assignment email (they are not repeated in this file).
 4. Note the login request:
     - Is it a `POST` request?
     - What form fields or JSON payload are sent (`username`, `password`, CSRF tokens)?

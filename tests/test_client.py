@@ -52,7 +52,7 @@ CONSUMPTION_TABLE_HTML = """
 
 def make_client(handler) -> UrjaPortalClient:
     """Build a client whose httpx transport is a deterministic mock handler."""
-    client = UrjaPortalClient(base_url="https://urja-ops.flockenergy.tech", email="operator@urja.local", password="urja-ops-2026")
+    client = UrjaPortalClient(base_url="https://urja-ops.flockenergy.tech", email="test-operator@urja.local", password="test-password-not-real")
     client._client = httpx.Client(
         base_url=client.base_url,
         transport=httpx.MockTransport(handler),
@@ -94,7 +94,7 @@ def test_normalize_number(raw, expected):
 def test_login_success_sets_authenticated_true():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/login":
-            assert b"email=operator%40urja.local" in request.content
+            assert b"email=test-operator%40urja.local" in request.content
             return httpx.Response(303, headers={"location": "/dashboard", "set-cookie": "session=abc123; HttpOnly"})
         # httpx follows the 303 redirect automatically (follow_redirects=True) — the
         # dashboard landing page itself is just a plain authenticated 200.
